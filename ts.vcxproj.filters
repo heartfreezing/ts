@@ -39,6 +39,9 @@
     <ClInclude Include="CCSocket.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="CMsg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ts.cpp">
@@ -54,6 +57,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CCSocket.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CMsg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

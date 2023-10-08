@@ -7,6 +7,7 @@
 #include "ts.h"
 #include "tsDlg.h"
 #include "afxdialogex.h"
+#include "CMsg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -60,6 +61,60 @@ CtsDlg::CtsDlg(CWnd* pParent /*=nullptr*/)
 	, m_nPort(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	m_pLSocket = NULL;
+}
+
+void CtsDlg::OnAccept()
+{
+	CCSocket* pSocket = new CCSocket(this);
+	if (m_pLSocket->Accept(*pSocket))
+	{
+		pSocket->Initialize();
+		m_connList.AddTail(pSocket);
+		CString strTemp;
+		strTemp.Format(L"在线人数：%d", m_connList.GetCount());
+		m_staNum.SetWindowText(strTemp);
+	}
+	else delete pSocket;
+}
+
+void CtsDlg::OnRecieve(CCSocket* pSocket)
+{
+	static CMsg msg;
+	do {
+		pSocket->ReceiveMessage(&msg);
+		m_listMsg.AddString(msg.m_strText);
+		backClients(&msg);
+		if (msg.m_bClose)
+		{
+			pSocket->Close();
+			POSITION pos, temp;
+			for (pos = m_connList.GetHeadPosition(); pos != NULL;)
+			{
+				temp = pos;
+				CCSocket* pSock = (CCSocket*)m_connList.GetNext(pos);
+				if (pSock == pSocket)
+				{
+					m_connList.RemoveAt(temp);
+					CString strTemp;
+					strTemp.Format(L"在线人数：%d",m_connList.GetCount());
+					m_staNum.SetWindowText(strTemp);
+					break;
+				}
+			}
+			delete pSocket;
+			break;
+		}
+	} while (!pSocket->m_pArchiveIn->IsBufferEmpty());
+}
+
+void CtsDlg::backClients(CMsg* pMsg)
+{
+	for (POSITION pos = m_connList.GetHeadPosition(); pos != NULL;)
+	{
+		CCSocket* pSocket = (CCSocket*)m_connList.GetNext(pos);
+		pSocket->SendMessage(pMsg);
+	}
 }
 
 void CtsDlg::DoDataExchange(CDataExchange* pDX)
@@ -111,6 +166,9 @@ BOOL CtsDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	m_nPort = 8000;
+	UpdateData(FALSE);
+	GetDlgItem(IDOK)->EnableWindow(FALSE);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -162,6 +220,50 @@ void CtsDlg::OnPaint()
 HCURSOR CtsDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
+}
+
+void CtsDlg::OnButtonListen()
+{
+	UpdateData(TRUE);
+	m_pLSocket = new CLSocket(this);
+	if (!m_pLSocket->Create(m_nPort))
+	{
+		delete m_pLSocket;
+		m_pLSocket = NULL;
+		AfxMessageBox(_T("创建监听套接字错误"));
+		return;
+	}
+	if (!m_pLSocket->Listen())
+	{
+		delete m_pLSocket;
+		m_pLSocket = NULL;
+		AfxMessageBox(_T("启动监听错误"));
+		return;
+	}
+	GetDlgItem(IDC_EDIT_PORT)->EnableWindow(FALSE);
+	GetDlgItem(IDC_BUTTON_LISTEN)->EnableWindow(FALSE);
+	GetDlgItem(IDOK)->EnableWindow(TRUE);
+}
+
+void CtsDlg::OnClose()
+{
+	CMsg msg;
+	msg.m_strText = "服务器终止服务！";
+	delete m_pLSocket;
+	m_pLSocket = NULL;
+	while (!m_connList.IsEmpty())
+	{
+		CCSocket* pSocket=(CCSocket*)m_connList.RemoveHead();
+		pSocket->SendMessage(&msg);
+		delete pSocket;
+	}
+	while (m_listMsg.GetCount() != 0)
+	{
+		m_listMsg.DeleteString(0);
+	}
+	GetDlgItem(IDC_EDIT_PORT)->EnableWindow(TRUE);
+	GetDlgItem(IDC_BUTTON_LISTEN)->EnableWindow(TRUE);
+	GetDlgItem(IDOK)->EnableWindow(FALSE);
 }
 
 
